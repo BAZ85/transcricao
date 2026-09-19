@@ -109,13 +109,6 @@ Os campos de modelo são opcionais: só precisam ser preenchidos se a conta usad
 acesso ao modelo padrão definido em [`config.py`](ferramenta_transcricao/config.py). Trocar de provedor depois é
 só mudar `AI_PROVIDER` e a chave correspondente no `.env` — nenhum código precisa mudar.
 
-> Testamos também o Google Gemini e removemos o suporte: além de instabilidade do serviço
-> (respostas `503` por sobrecarga), em algum teste o modelo acrescentou texto que não foi
-> pedido (um rótulo da disciplina antes de cada linha), violando a instrução de não alterar
-> nada além dos termos técnicos — algo que não observamos com OpenAI ou Claude. Se quiser
-> reavaliar isso no futuro, o padrão de implementação em
-> [`corretor_termos.py`](ferramenta_transcricao/corretor_termos.py) (uma função por
-> provedor, registrada em `_CHAMADAS_POR_PROVEDOR`) já deixa isso simples de reintroduzir.
 
 ### Usando outros modelos (DeepSeek, Qwen, Grok, etc.)
 
@@ -173,9 +166,6 @@ O diretório informado deve conter (em qualquer nível, a busca é recursiva) os
 Ao final da execução, um resumo é impresso com o total de vídeos encontrados, processados,
 processados com aviso, pulados e com falha.
 
-> Evite apontar o diretório raiz para dentro deste próprio repositório: os `.mp4`/`.mp3`/
-> `.srt` gerados são ignorados pelo git (veja `.gitignore`), mas os `.md` de transcrição não
-> têm como ser distinguidos automaticamente de documentação real do projeto.
 
 ## Controle de progresso
 
