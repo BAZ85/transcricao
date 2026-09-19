@@ -18,19 +18,21 @@ cada vídeo.
 ## Como funciona
 
 Para cada vídeo `.mp4` pendente, o pipeline roda em três etapas sequenciais
-([`orquestrador.py`](orquestrador.py)):
+([`orquestrador.py`](ferramenta_transcricao/orquestrador.py)):
 
-1. **Extração de áudio** ([`extrator_audio.py`](extrator_audio.py)) — usa `ffmpeg` para
-   extrair a faixa de áudio do vídeo para um `.mp3` na mesma pasta.
-2. **Transcrição local** ([`transcritor_local.py`](transcritor_local.py)) — invoca o script
-   [`scripts/transcribe.py`](scripts/transcribe.py), que roda o `faster-whisper`
-   diretamente na sua máquina (CPU ou GPU, se houver placa NVIDIA disponível) para gerar
-   um `.srt` com timestamps — o áudio nunca sai da máquina nessa etapa, nenhuma API externa
-   é usada. O processo é monitorado: se o `.srt` ficar muito tempo sem receber novos
-   trechos, a transcrição é abortada (evita travar indefinidamente num vídeo problemático).
-   Também detecta quando a transcrição para antes do fim real do áudio (um comportamento
-   observado em áudios longos) e retranscreve automaticamente o trecho final que faltou.
-3. **Correção de termos técnicos** ([`corretor_termos.py`](corretor_termos.py)) — envia os
+1. **Extração de áudio** ([`extrator_audio.py`](ferramenta_transcricao/extrator_audio.py)) —
+   usa `ffmpeg` para extrair a faixa de áudio do vídeo para um `.mp3` na mesma pasta.
+2. **Transcrição local** ([`transcritor_local.py`](ferramenta_transcricao/transcritor_local.py))
+   — invoca o script [`scripts/transcribe.py`](ferramenta_transcricao/scripts/transcribe.py),
+   que roda o `faster-whisper` diretamente na sua máquina (CPU ou GPU, se houver placa
+   NVIDIA disponível) para gerar um `.srt` com timestamps — o áudio nunca sai da máquina
+   nessa etapa, nenhuma API externa é usada. O processo é monitorado: se o `.srt` ficar
+   muito tempo sem receber novos trechos, a transcrição é abortada (evita travar
+   indefinidamente num vídeo problemático). Também detecta quando a transcrição para antes
+   do fim real do áudio (um comportamento observado em áudios longos) e retranscreve
+   automaticamente o trecho final que faltou.
+3. **Correção de termos técnicos**
+   ([`corretor_termos.py`](ferramenta_transcricao/corretor_termos.py)) — envia os
    trechos transcritos, em lotes, para o provedor de IA escolhido em `AI_PROVIDER`
    (OpenAI, Gemini ou Claude), que identifica a disciplina pelo próprio conteúdo e corrige
    apenas termos técnicos, siglas e jargão que o motor de transcrição de voz possa ter
@@ -53,13 +55,13 @@ O texto final é salvo em blocos `**(HH:MM:SS -> HH:MM:SS)** texto`, um por trec
    [Como funciona](#como-funciona)).
 
 O motor de transcrição (`faster-whisper`) **não precisa ser instalado à parte**: o script
-[`scripts/transcribe.py`](scripts/transcribe.py) já vem dentro deste repositório e, na
+[`scripts/transcribe.py`](ferramenta_transcricao/scripts/transcribe.py) já vem dentro deste repositório e, na
 primeira vez que rodar, instala sozinho a dependência `faster-whisper` via `pip` (no mesmo
 interpretador Python usado para rodar o script) e baixa o modelo de reconhecimento de fala
 do Hugging Face. É necessário acesso à internet só nesse primeiro uso — depois, o modelo
 fica em cache local e tudo roda offline.
 
-`TRANSCRIPT_MODEL_SIZE`, em [`config.py`](config.py), aceita os tamanhos de modelo do
+`TRANSCRIPT_MODEL_SIZE`, em [`config.py`](ferramenta_transcricao/config.py), aceita os tamanhos de modelo do
 Whisper (`tiny`, `base`, `small`, `medium`, `large`, ...) — quanto maior, melhor a qualidade
 e mais RAM/tempo de CPU consome. Veja [Solução de problemas](#solução-de-problemas) se a
 transcrição travar no modelo `small`.
@@ -102,7 +104,7 @@ A etapa de correção de termos suporta três provedores, escolhidos pela variá
 | `claude`      | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL`                        |
 
 Os campos de modelo são opcionais: só precisam ser preenchidos se a conta usada não tiver
-acesso ao modelo padrão definido em [`config.py`](config.py). Trocar de provedor depois é
+acesso ao modelo padrão definido em [`config.py`](ferramenta_transcricao/config.py). Trocar de provedor depois é
 só mudar `AI_PROVIDER` e a chave correspondente no `.env` — nenhum código precisa mudar.
 
 ## Instalação
@@ -114,7 +116,8 @@ python verificar_ambiente.py
 ```
 
 Ele confere a versão do Python e a presença do `ffmpeg`/`ffprobe`, instala as dependências
-de [`ferramenta_transcricao/requirements.txt`](requirements.txt) (incluindo os clientes dos
+de [`ferramenta_transcricao/requirements.txt`](ferramenta_transcricao/requirements.txt)
+(incluindo os clientes dos
 três provedores de IA suportados) e cria o `.env` a partir de `.env.example` (se ainda não
 existir). Ao final, abra o `.env` criado e preencha `AI_PROVIDER` e a chave de API
 correspondente — veja [Escolhendo o provedor de IA](#escolhendo-o-provedor-de-ia).
