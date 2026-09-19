@@ -1,4 +1,5 @@
-"""Correção de termos técnicos de um .srt via API da OpenAI, com fallback para texto bruto."""
+"""Correção de termos técnicos de um .srt via IA (OpenAI, Gemini ou Claude, conforme
+config.AI_PROVIDER), com fallback para texto bruto."""
 
 import re
 from dataclasses import dataclass
@@ -11,8 +12,31 @@ try:
 except ImportError:  # biblioteca ainda não instalada no ambiente
     OpenAI = None
 
+try:
+    from google import genai
+    from google.genai import types as genai_types
+except ImportError:  # biblioteca ainda não instalada no ambiente
+    genai = None
+    genai_types = None
+
+try:
+    from anthropic import Anthropic
+except ImportError:  # biblioteca ainda não instalada no ambiente
+    Anthropic = None
+
 _PADRAO_TEMPO = re.compile(r"(\d{2}:\d{2}:\d{2}),\d{3}\s*-->\s*(\d{2}:\d{2}:\d{2}),\d{3}")
 _TAMANHO_LOTE = 20
+
+_PROMPT_SISTEMA = (
+    "Estes trechos são de uma transcrição de aula. Primeiro identifique, "
+    "pelo próprio conteúdo, qual é a disciplina ou área técnica tratada "
+    "(ex.: direito tributário, direito ambiental, medicina, engenharia "
+    "etc.). Em seguida, corrija apenas os termos técnicos, siglas, nomes "
+    "próprios de normas/instituições e jargão dessa área que o motor de "
+    "transcrição de voz possa ter errado. Não altere o restante do texto, "
+    "não resuma, não reescreva estilo. Responda cada trecho na mesma "
+    "numeração [n] recebida, um por linha, sem comentários adicionais."
+)
 
 
 @dataclass
@@ -41,38 +65,74 @@ def _montar_markdown(trechos: list[Trecho]) -> str:
     return "\n\n".join(f"**({t.inicio} -> {t.fim})** {t.texto}" for t in trechos)
 
 
-def _corrigir_com_api(trechos: list[Trecho]) -> list[Trecho]:
+def _chamar_openai(texto_numerado: str) -> str:
     if not config.OPENAI_API_KEY or OpenAI is None:
         raise RuntimeError("Chave de API da OpenAI ausente ou biblioteca openai não instalada")
 
     cliente = OpenAI(api_key=config.OPENAI_API_KEY)
+    resposta = cliente.chat.completions.create(
+        model=config.OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": _PROMPT_SISTEMA},
+            {"role": "user", "content": texto_numerado},
+        ],
+    )
+    return resposta.choices[0].message.content or ""
+
+
+def _chamar_gemini(texto_numerado: str) -> str:
+    if not config.GEMINI_API_KEY or genai is None:
+        raise RuntimeError(
+            "Chave de API do Gemini ausente ou biblioteca google-genai não instalada"
+        )
+
+    cliente = genai.Client(api_key=config.GEMINI_API_KEY)
+    resposta = cliente.models.generate_content(
+        model=config.GEMINI_MODEL,
+        contents=texto_numerado,
+        config=genai_types.GenerateContentConfig(system_instruction=_PROMPT_SISTEMA),
+    )
+    return resposta.text or ""
+
+
+def _chamar_claude(texto_numerado: str) -> str:
+    if not config.ANTHROPIC_API_KEY or Anthropic is None:
+        raise RuntimeError(
+            "Chave de API da Anthropic ausente ou biblioteca anthropic não instalada"
+        )
+
+    cliente = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    resposta = cliente.messages.create(
+        model=config.ANTHROPIC_MODEL,
+        max_tokens=4096,
+        system=_PROMPT_SISTEMA,
+        messages=[{"role": "user", "content": texto_numerado}],
+    )
+    return "".join(bloco.text for bloco in resposta.content if bloco.type == "text")
+
+
+_CHAMADAS_POR_PROVEDOR = {
+    "openai": _chamar_openai,
+    "gemini": _chamar_gemini,
+    "claude": _chamar_claude,
+}
+
+
+def _corrigir_com_api(trechos: list[Trecho]) -> list[Trecho]:
+    chamar_ia = _CHAMADAS_POR_PROVEDOR.get(config.AI_PROVIDER)
+    if chamar_ia is None:
+        provedores = ", ".join(_CHAMADAS_POR_PROVEDOR)
+        raise RuntimeError(
+            f"AI_PROVIDER '{config.AI_PROVIDER}' inválido. Use um dos: {provedores}."
+        )
+
     corrigidos: list[Trecho] = []
 
     for inicio in range(0, len(trechos), _TAMANHO_LOTE):
         lote = trechos[inicio:inicio + _TAMANHO_LOTE]
         texto_numerado = "\n".join(f"[{j}] {t.texto}" for j, t in enumerate(lote))
 
-        resposta = cliente.chat.completions.create(
-            model=config.OPENAI_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Estes trechos são de uma transcrição de aula. Primeiro identifique, "
-                        "pelo próprio conteúdo, qual é a disciplina ou área técnica tratada "
-                        "(ex.: direito tributário, direito ambiental, medicina, engenharia "
-                        "etc.). Em seguida, corrija apenas os termos técnicos, siglas, nomes "
-                        "próprios de normas/instituições e jargão dessa área que o motor de "
-                        "transcrição de voz possa ter errado. Não altere o restante do texto, "
-                        "não resuma, não reescreva estilo. Responda cada trecho na mesma "
-                        "numeração [n] recebida, um por linha, sem comentários adicionais."
-                    ),
-                },
-                {"role": "user", "content": texto_numerado},
-            ],
-        )
-
-        conteudo = resposta.choices[0].message.content or ""
+        conteudo = chamar_ia(texto_numerado)
         corrigidos_por_indice: dict[int, str] = {}
         for linha in conteudo.splitlines():
             m = re.match(r"\[(\d+)\]\s?(.*)", linha)

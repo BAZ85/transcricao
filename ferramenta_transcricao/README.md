@@ -1,16 +1,18 @@
 # Ferramenta de Transcrição Automática de Aulas
 
 Percorre recursivamente as pastas de um curso em vídeo, extrai o áudio de cada `.mp4`,
-transcreve localmente e corrige os termos técnicos da transcrição via API da OpenAI —
-identificando sozinha, pelo conteúdo, qual é a disciplina tratada (direito tributário,
-direito ambiental, medicina, engenharia etc.), sem precisar que isso seja informado.
-O resultado é um `.md` com timestamps, salvo ao lado de cada vídeo.
+transcreve localmente e corrige os termos técnicos da transcrição via IA — à sua escolha,
+OpenAI, Google Gemini ou Anthropic Claude — identificando sozinha, pelo conteúdo, qual é a
+disciplina tratada (direito tributário, direito ambiental, medicina, engenharia etc.), sem
+precisar que isso seja informado. O resultado é um `.md` com timestamps, salvo ao lado de
+cada vídeo.
 
 ## Início rápido
 
 1. Instale o `ffmpeg` — veja [Instalando o ffmpeg](#instalando-o-ffmpeg).
 2. `python verificar_ambiente.py` — instala as dependências e cria o `.env`.
-3. Preencha `OPENAI_API_KEY` no `.env` criado.
+3. No `.env` criado, defina `AI_PROVIDER` (`openai`, `gemini` ou `claude`) e preencha a
+   chave de API correspondente — veja [Escolhendo o provedor de IA](#escolhendo-o-provedor-de-ia).
 4. `python -m ferramenta_transcricao.cli "<diretorio_raiz_do_curso>"`
 
 ## Como funciona
@@ -29,12 +31,13 @@ Para cada vídeo `.mp4` pendente, o pipeline roda em três etapas sequenciais
    Também detecta quando a transcrição para antes do fim real do áudio (um comportamento
    observado em áudios longos) e retranscreve automaticamente o trecho final que faltou.
 3. **Correção de termos técnicos** ([`corretor_termos.py`](corretor_termos.py)) — envia os
-   trechos transcritos, em lotes, para a API da OpenAI, que identifica a disciplina pelo
-   próprio conteúdo e corrige apenas termos técnicos, siglas e jargão que o motor de
-   transcrição de voz possa ter errado — sem resumir, sem reescrever estilo, sem alterar o
-   restante do texto. Se a API falhar por qualquer motivo (chave ausente, rede,
-   indisponibilidade, rate limit), a ferramenta não trava: cai em modo de fallback e salva a
-   transcrição bruta mesmo assim, sinalizando o vídeo como "processado com aviso".
+   trechos transcritos, em lotes, para o provedor de IA escolhido em `AI_PROVIDER`
+   (OpenAI, Gemini ou Claude), que identifica a disciplina pelo próprio conteúdo e corrige
+   apenas termos técnicos, siglas e jargão que o motor de transcrição de voz possa ter
+   errado — sem resumir, sem reescrever estilo, sem alterar o restante do texto. Se a
+   chamada falhar por qualquer motivo (chave ausente, rede, indisponibilidade, rate limit),
+   a ferramenta não trava: cai em modo de fallback e salva a transcrição bruta mesmo assim,
+   sinalizando o vídeo como "processado com aviso".
 
 O texto final é salvo em blocos `**(HH:MM:SS -> HH:MM:SS)** texto`, um por trecho.
 
@@ -44,8 +47,10 @@ O texto final é salvo em blocos `**(HH:MM:SS -> HH:MM:SS)** texto`, um por trec
    [Instalando o ffmpeg](#instalando-o-ffmpeg) abaixo. É o único requisito de sistema que
    precisa ser instalado manualmente.
 2. **Python 3.10+** (o código usa sintaxe de union type `X | None`, introduzida no 3.10).
-3. Uma **chave de API da OpenAI**, usada só na etapa de correção de termos (a transcrição em
-   si é 100% local — veja [Como funciona](#como-funciona)).
+3. Uma **chave de API de um provedor de IA suportado** (OpenAI, Google Gemini ou Anthropic
+   Claude — veja [Escolhendo o provedor de IA](#escolhendo-o-provedor-de-ia)), usada só na
+   etapa de correção de termos (a transcrição em si é 100% local — veja
+   [Como funciona](#como-funciona)).
 
 O motor de transcrição (`faster-whisper`) **não precisa ser instalado à parte**: o script
 [`scripts/transcribe.py`](scripts/transcribe.py) já vem dentro deste repositório e, na
@@ -85,6 +90,21 @@ ffprobe -version
 Se qualquer um dos dois comandos não for reconhecido, o `PATH` não foi atualizado
 corretamente (em geral, basta reabrir o terminal/IDE após a instalação).
 
+### Escolhendo o provedor de IA
+
+A etapa de correção de termos suporta três provedores, escolhidos pela variável
+`AI_PROVIDER` no `.env` — preencha só a chave do provedor escolhido:
+
+| `AI_PROVIDER` | Chave de API      | Modelo (opcional, padrão em `config.py`) |
+|---------------|-------------------|-------------------------------------------|
+| `openai`      | `OPENAI_API_KEY`  | `OPENAI_MODEL`                             |
+| `gemini`      | `GEMINI_API_KEY`  | `GEMINI_MODEL`                             |
+| `claude`      | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL`                        |
+
+Os campos de modelo são opcionais: só precisam ser preenchidos se a conta usada não tiver
+acesso ao modelo padrão definido em [`config.py`](config.py). Trocar de provedor depois é
+só mudar `AI_PROVIDER` e a chave correspondente no `.env` — nenhum código precisa mudar.
+
 ## Instalação
 
 Depois de instalar o `ffmpeg` (acima), rode o script de setup na raiz do repositório:
@@ -94,17 +114,13 @@ python verificar_ambiente.py
 ```
 
 Ele confere a versão do Python e a presença do `ffmpeg`/`ffprobe`, instala as dependências
-de [`ferramenta_transcricao/requirements.txt`](requirements.txt) e cria o `.env` a partir
-de `.env.example` (se ainda não existir). Ao final, abra o `.env` criado e preencha:
+de [`ferramenta_transcricao/requirements.txt`](requirements.txt) (incluindo os clientes dos
+três provedores de IA suportados) e cria o `.env` a partir de `.env.example` (se ainda não
+existir). Ao final, abra o `.env` criado e preencha `AI_PROVIDER` e a chave de API
+correspondente — veja [Escolhendo o provedor de IA](#escolhendo-o-provedor-de-ia).
 
-```
-OPENAI_API_KEY=sk-...
-```
-
-`OPENAI_MODEL`, no mesmo `.env`, é opcional — só precisa ser preenchido se a sua conta não
-tiver acesso ao modelo padrão definido em [`config.py`](config.py). `config.py` também expõe
-`PROGRESS_TIMEOUT_SECONDS` (tempo sem progresso na transcrição até abortar, padrão 10
-minutos).
+`config.py` também expõe `PROGRESS_TIMEOUT_SECONDS` (tempo sem progresso na transcrição até
+abortar, padrão 10 minutos).
 
 Prefere fazer manualmente em vez de rodar o script? Basta `pip install -r
 ferramenta_transcricao/requirements.txt` e copiar `.env.example` para `.env`.
@@ -141,9 +157,10 @@ sempre que novas aulas forem adicionadas ao curso.
 - Falha em um vídeo específico (ex.: arquivo corrompido, timeout de transcrição sem
   progresso) não interrompe o processamento dos demais vídeos do lote — é registrada e
   reportada no resumo final.
-- Falha na chamada à API da OpenAI (chave ausente, indisponibilidade, rate limit) não
-  bloqueia a geração do `.md`: o arquivo é salvo com o texto bruto da transcrição, sem
-  correção de termos, e o vídeo aparece no resumo como "processado com aviso".
+- Falha na chamada ao provedor de IA escolhido (chave ausente, `AI_PROVIDER` inválido,
+  indisponibilidade, rate limit) não bloqueia a geração do `.md`: o arquivo é salvo com o
+  texto bruto da transcrição, sem correção de termos, e o vídeo aparece no resumo como
+  "processado com aviso".
 
 ## Solução de problemas
 

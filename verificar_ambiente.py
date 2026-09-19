@@ -45,7 +45,8 @@ def preparar_env() -> None:
         print("[OK] .env já existe")
         return
     ENV.write_text(ENV_EXAMPLE.read_text(encoding="utf-8"), encoding="utf-8")
-    print("[OK] .env criado a partir de .env.example — preencha OPENAI_API_KEY antes de usar.")
+    print("[OK] .env criado a partir de .env.example — defina AI_PROVIDER e a chave de API "
+          "correspondente antes de usar.")
 
 
 def main() -> int:
@@ -57,7 +58,7 @@ def main() -> int:
 
     print()
     if python_ok and ffmpeg_ok:
-        print("Tudo pronto. Preencha OPENAI_API_KEY no .env e rode:")
+        print("Tudo pronto. Defina AI_PROVIDER e a chave de API correspondente no .env e rode:")
         print('  python -m ferramenta_transcricao.cli "<diretorio_raiz_do_curso>"')
         return 0
 
