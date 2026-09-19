@@ -1,4 +1,4 @@
-"""Correção de termos técnicos de um .srt via IA (OpenAI, Gemini ou Claude, conforme
+"""Correção de termos técnicos de um .srt via IA (OpenAI ou Claude, conforme
 config.AI_PROVIDER), com fallback para texto bruto."""
 
 import re
@@ -11,13 +11,6 @@ try:
     from openai import OpenAI
 except ImportError:  # biblioteca ainda não instalada no ambiente
     OpenAI = None
-
-try:
-    from google import genai
-    from google.genai import types as genai_types
-except ImportError:  # biblioteca ainda não instalada no ambiente
-    genai = None
-    genai_types = None
 
 try:
     from anthropic import Anthropic
@@ -69,7 +62,7 @@ def _chamar_openai(texto_numerado: str) -> str:
     if not config.OPENAI_API_KEY or OpenAI is None:
         raise RuntimeError("Chave de API da OpenAI ausente ou biblioteca openai não instalada")
 
-    cliente = OpenAI(api_key=config.OPENAI_API_KEY)
+    cliente = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
     resposta = cliente.chat.completions.create(
         model=config.OPENAI_MODEL,
         messages=[
@@ -78,21 +71,6 @@ def _chamar_openai(texto_numerado: str) -> str:
         ],
     )
     return resposta.choices[0].message.content or ""
-
-
-def _chamar_gemini(texto_numerado: str) -> str:
-    if not config.GEMINI_API_KEY or genai is None:
-        raise RuntimeError(
-            "Chave de API do Gemini ausente ou biblioteca google-genai não instalada"
-        )
-
-    cliente = genai.Client(api_key=config.GEMINI_API_KEY)
-    resposta = cliente.models.generate_content(
-        model=config.GEMINI_MODEL,
-        contents=texto_numerado,
-        config=genai_types.GenerateContentConfig(system_instruction=_PROMPT_SISTEMA),
-    )
-    return resposta.text or ""
 
 
 def _chamar_claude(texto_numerado: str) -> str:
@@ -113,7 +91,6 @@ def _chamar_claude(texto_numerado: str) -> str:
 
 _CHAMADAS_POR_PROVEDOR = {
     "openai": _chamar_openai,
-    "gemini": _chamar_gemini,
     "claude": _chamar_claude,
 }
 

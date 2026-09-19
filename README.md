@@ -2,16 +2,18 @@
 
 Percorre recursivamente as pastas de um curso em vídeo, extrai o áudio de cada `.mp4`,
 transcreve localmente e corrige os termos técnicos da transcrição via IA — à sua escolha,
-OpenAI, Google Gemini ou Anthropic Claude — identificando sozinha, pelo conteúdo, qual é a
-disciplina tratada (direito tributário, direito ambiental, medicina, engenharia etc.), sem
-precisar que isso seja informado. O resultado é um `.md` com timestamps, salvo ao lado de
-cada vídeo.
+OpenAI ou Anthropic Claude (e, por extensão, qualquer provedor com API compatível com a da
+OpenAI, como DeepSeek, Qwen ou Grok — veja
+[Usando outros modelos](#usando-outros-modelos-deepseek-qwen-grok-etc)) — identificando
+sozinha, pelo conteúdo, qual é a disciplina tratada (direito tributário, direito ambiental,
+medicina, engenharia etc.), sem precisar que isso seja informado. O resultado é um `.md`
+com timestamps, salvo ao lado de cada vídeo.
 
 ## Início rápido
 
 1. Instale o `ffmpeg` — veja [Instalando o ffmpeg](#instalando-o-ffmpeg).
 2. `python verificar_ambiente.py` — instala as dependências e cria o `.env`.
-3. No `.env` criado, defina `AI_PROVIDER` (`openai`, `gemini` ou `claude`) e preencha a
+3. No `.env` criado, defina `AI_PROVIDER` (`openai` ou `claude`) e preencha a
    chave de API correspondente — veja [Escolhendo o provedor de IA](#escolhendo-o-provedor-de-ia).
 4. `python -m ferramenta_transcricao.cli "<diretorio_raiz_do_curso>"`
 
@@ -34,7 +36,7 @@ Para cada vídeo `.mp4` pendente, o pipeline roda em três etapas sequenciais
 3. **Correção de termos técnicos**
    ([`corretor_termos.py`](ferramenta_transcricao/corretor_termos.py)) — envia os
    trechos transcritos, em lotes, para o provedor de IA escolhido em `AI_PROVIDER`
-   (OpenAI, Gemini ou Claude), que identifica a disciplina pelo próprio conteúdo e corrige
+   (OpenAI ou Claude), que identifica a disciplina pelo próprio conteúdo e corrige
    apenas termos técnicos, siglas e jargão que o motor de transcrição de voz possa ter
    errado — sem resumir, sem reescrever estilo, sem alterar o restante do texto. Se a
    chamada falhar por qualquer motivo (chave ausente, rede, indisponibilidade, rate limit),
@@ -49,9 +51,10 @@ O texto final é salvo em blocos `**(HH:MM:SS -> HH:MM:SS)** texto`, um por trec
    [Instalando o ffmpeg](#instalando-o-ffmpeg) abaixo. É o único requisito de sistema que
    precisa ser instalado manualmente.
 2. **Python 3.10+** (o código usa sintaxe de union type `X | None`, introduzida no 3.10).
-3. Uma **chave de API de um provedor de IA suportado** (OpenAI, Google Gemini ou Anthropic
-   Claude — veja [Escolhendo o provedor de IA](#escolhendo-o-provedor-de-ia)), usada só na
-   etapa de correção de termos (a transcrição em si é 100% local — veja
+3. Uma **chave de API de um provedor de IA suportado** (OpenAI, Anthropic Claude, ou outro
+   compatível com a API da OpenAI — veja
+   [Escolhendo o provedor de IA](#escolhendo-o-provedor-de-ia)), usada só na etapa de
+   correção de termos (a transcrição em si é 100% local — veja
    [Como funciona](#como-funciona)).
 
 O motor de transcrição (`faster-whisper`) **não precisa ser instalado à parte**: o script
@@ -94,18 +97,43 @@ corretamente (em geral, basta reabrir o terminal/IDE após a instalação).
 
 ### Escolhendo o provedor de IA
 
-A etapa de correção de termos suporta três provedores, escolhidos pela variável
+A etapa de correção de termos suporta dois provedores, escolhidos pela variável
 `AI_PROVIDER` no `.env` — preencha só a chave do provedor escolhido:
 
-| `AI_PROVIDER` | Chave de API      | Modelo (opcional, padrão em `config.py`) |
-|---------------|-------------------|-------------------------------------------|
-| `openai`      | `OPENAI_API_KEY`  | `OPENAI_MODEL`                             |
-| `gemini`      | `GEMINI_API_KEY`  | `GEMINI_MODEL`                             |
-| `claude`      | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL`                        |
+| `AI_PROVIDER` | Chave de API        | Modelo (opcional, padrão em `config.py`) |
+|---------------|---------------------|-------------------------------------------|
+| `openai`      | `OPENAI_API_KEY`    | `OPENAI_MODEL`                             |
+| `claude`      | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL`                          |
 
 Os campos de modelo são opcionais: só precisam ser preenchidos se a conta usada não tiver
 acesso ao modelo padrão definido em [`config.py`](ferramenta_transcricao/config.py). Trocar de provedor depois é
 só mudar `AI_PROVIDER` e a chave correspondente no `.env` — nenhum código precisa mudar.
+
+> Testamos também o Google Gemini e removemos o suporte: além de instabilidade do serviço
+> (respostas `503` por sobrecarga), em algum teste o modelo acrescentou texto que não foi
+> pedido (um rótulo da disciplina antes de cada linha), violando a instrução de não alterar
+> nada além dos termos técnicos — algo que não observamos com OpenAI ou Claude. Se quiser
+> reavaliar isso no futuro, o padrão de implementação em
+> [`corretor_termos.py`](ferramenta_transcricao/corretor_termos.py) (uma função por
+> provedor, registrada em `_CHAMADAS_POR_PROVEDOR`) já deixa isso simples de reintroduzir.
+
+### Usando outros modelos (DeepSeek, Qwen, Grok, etc.)
+
+Muitos provedores de IA expõem uma API compatível com a da OpenAI. Nesses casos não é
+preciso nenhum código novo: use `AI_PROVIDER=openai` e aponte `OPENAI_BASE_URL` para o
+endpoint do provedor, com `OPENAI_API_KEY` e `OPENAI_MODEL` preenchidos com a chave e o
+nome do modelo daquele provedor. Exemplos (confirme o endpoint e o nome do modelo atuais na
+documentação de cada provedor, pois mudam com o tempo):
+
+| Provedor | `OPENAI_BASE_URL`                                  | `OPENAI_MODEL` (exemplo) |
+|----------|-----------------------------------------------------|---------------------------|
+| DeepSeek | `https://api.deepseek.com`                          | `deepseek-chat`           |
+| Qwen (Alibaba, modo compatível) | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
+| Grok (xAI) | `https://api.x.ai/v1`                             | `grok-4`                  |
+| Groq     | `https://api.groq.com/openai/v1`                    | (modelo hospedado no Groq) |
+| Ollama (modelo local) | `http://localhost:11434/v1`            | (nome do modelo baixado localmente) |
+
+Deixe `OPENAI_BASE_URL` em branco para usar a OpenAI oficial.
 
 ## Instalação
 
@@ -117,10 +145,10 @@ python verificar_ambiente.py
 
 Ele confere a versão do Python e a presença do `ffmpeg`/`ffprobe`, instala as dependências
 de [`ferramenta_transcricao/requirements.txt`](ferramenta_transcricao/requirements.txt)
-(incluindo os clientes dos
-três provedores de IA suportados) e cria o `.env` a partir de `.env.example` (se ainda não
-existir). Ao final, abra o `.env` criado e preencha `AI_PROVIDER` e a chave de API
-correspondente — veja [Escolhendo o provedor de IA](#escolhendo-o-provedor-de-ia).
+(incluindo os clientes dos provedores de IA suportados) e cria o `.env` a partir de
+`.env.example` (se ainda não existir). Ao final, abra o `.env` criado e preencha
+`AI_PROVIDER` e a chave de API correspondente — veja
+[Escolhendo o provedor de IA](#escolhendo-o-provedor-de-ia).
 
 `config.py` também expõe `PROGRESS_TIMEOUT_SECONDS` (tempo sem progresso na transcrição até
 abortar, padrão 10 minutos).
