@@ -10,7 +10,7 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = "gpt-5.6-luna"
 
-TRANSCRIPT_SKILL_SCRIPT = Path(r"C:\pythonprojects\skills\transcript-skill\scripts\transcribe.py")
+TRANSCRIPT_SKILL_SCRIPT = Path(__file__).parent / "scripts" / "transcribe.py"
 TRANSCRIPT_MODEL_SIZE = "small"
 
 PROGRESS_TIMEOUT_SECONDS = 10 * 60
