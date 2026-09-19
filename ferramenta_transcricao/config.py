@@ -7,6 +7,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Uma variável deixada em branco no .env chega a os.environ como string vazia
+# (presente, não ausente). O SDK da OpenAI lê OPENAI_BASE_URL diretamente do
+# ambiente como fallback quando não passamos o parâmetro, e trata essa string
+# vazia como um valor real — resultando numa URL de API vazia. Removê-la do
+# ambiente quando vazia evita esse problema.
+if not os.environ.get("OPENAI_BASE_URL"):
+    os.environ.pop("OPENAI_BASE_URL", None)
+
 AI_PROVIDER = (os.getenv("AI_PROVIDER") or "openai").strip().lower()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
