@@ -4,6 +4,7 @@ e detecção/correção de transcrição truncada antes do fim real do áudio.""
 import os
 import re
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -166,7 +167,7 @@ def _invocar_transcript_skill(caminho_audio: Path, caminho_srt: Path) -> None:
     sem escrever novos trechos, ou TranscricaoError em qualquer outra falha.
     """
     comando = [
-        "python", str(config.TRANSCRIPT_SKILL_SCRIPT),
+        sys.executable, str(config.TRANSCRIPT_SKILL_SCRIPT),
         str(caminho_audio), str(caminho_srt), config.TRANSCRIPT_MODEL_SIZE,
     ]
 

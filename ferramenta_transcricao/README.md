@@ -6,6 +6,13 @@ identificando sozinha, pelo conteúdo, qual é a disciplina tratada (direito tri
 direito ambiental, medicina, engenharia etc.), sem precisar que isso seja informado.
 O resultado é um `.md` com timestamps, salvo ao lado de cada vídeo.
 
+## Início rápido
+
+1. Instale o `ffmpeg` — veja [Instalando o ffmpeg](#instalando-o-ffmpeg).
+2. `python verificar_ambiente.py` — instala as dependências e cria o `.env`.
+3. Preencha `OPENAI_API_KEY` no `.env` criado.
+4. `python -m ferramenta_transcricao.cli "<diretorio_raiz_do_curso>"`
+
 ## Como funciona
 
 Para cada vídeo `.mp4` pendente, o pipeline roda em três etapas sequenciais
@@ -80,20 +87,27 @@ corretamente (em geral, basta reabrir o terminal/IDE após a instalação).
 
 ## Instalação
 
+Depois de instalar o `ffmpeg` (acima), rode o script de setup na raiz do repositório:
+
 ```
-pip install -r ferramenta_transcricao/requirements.txt
+python verificar_ambiente.py
 ```
 
-Crie um arquivo `.env` na raiz do projeto com a chave de API da OpenAI (use
-`.env.example` como referência — nunca versione o `.env`):
+Ele confere a versão do Python e a presença do `ffmpeg`/`ffprobe`, instala as dependências
+de [`ferramenta_transcricao/requirements.txt`](requirements.txt) e cria o `.env` a partir
+de `.env.example` (se ainda não existir). Ao final, abra o `.env` criado e preencha:
 
 ```
 OPENAI_API_KEY=sk-...
 ```
 
-Opcionalmente, `config.py` também expõe `OPENAI_MODEL` (modelo usado na correção de termos)
-e `PROGRESS_TIMEOUT_SECONDS` (tempo sem progresso na transcrição até abortar, padrão 10
+`OPENAI_MODEL`, no mesmo `.env`, é opcional — só precisa ser preenchido se a sua conta não
+tiver acesso ao modelo padrão definido em [`config.py`](config.py). `config.py` também expõe
+`PROGRESS_TIMEOUT_SECONDS` (tempo sem progresso na transcrição até abortar, padrão 10
 minutos).
+
+Prefere fazer manualmente em vez de rodar o script? Basta `pip install -r
+ferramenta_transcricao/requirements.txt` e copiar `.env.example` para `.env`.
 
 ## Uso
 
