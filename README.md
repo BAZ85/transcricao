@@ -185,3 +185,7 @@ descrita acima.
 **Primeira execução demorada / baixando modelo.** É esperado: o `faster-whisper` baixa o
 modelo do Hugging Face na primeira vez que é usado. Chamadas seguintes usam o modelo em
 cache local.
+
+## Licença
+
+[MIT](LICENSE).
